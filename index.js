@@ -20,7 +20,11 @@ app.use(cors());
 // Middleware to parse JSON in the request body
 app.use(bodyParser.json());
 
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
 
+// Maintain a set of connected WebSocket clients
+const connectedClients = new Set();
 
 mongoose.connect('mongodb+srv://admin-kundan:Kundan%4019@cluster0.0qyqn.mongodb.net/smartLightDB?retryWrites=true&w=majority');
 const db = mongoose.connection;
@@ -29,24 +33,27 @@ db.once("open", function () {
   console.log("Connected successfully");
 });
 
-// Create an HTTP server and WebSocket server
-const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
 
-// WebSocket connection handler
+
 wss.on('connection', (ws) => {
-  console.log(' WebSocket Client connected');
-
-  // Handle messages from the WebSocket client if needed
-
-  // Close the WebSocket connection when the client disconnects
-  ws.on('close', () => {
-    console.log('WebSocket Client disconnected');
+    console.log('Client connected');
+  
+    // Add the WebSocket connection to the set
+    connectedClients.add(ws);
+  
+    // Handle WebSocket messages from the client if needed
+    ws.send(JSON.stringify({alertType:"promptNumber", message: 'Hello from the server!' }));
+    // Close the WebSocket connection when the client disconnects
+    ws.on('close', () => {
+      console.log('Client disconnected');
+      // Remove the WebSocket connection from the set
+      connectedClients.delete(ws);
+    });
   });
-});
-
+  
 // MQTT subscription handler
 mqttClient.on('connect', () => {
+    
     const mqttTopi='/device/'+devId+'/bleDeviceInfo';
     mqttClient.subscribe(mqttTopi, (err) => {
       if (err) {
@@ -56,27 +63,29 @@ mqttClient.on('connect', () => {
     });
   });
   
-
+var unprovDevData;
   mqttClient.on('message', (topic, message) => {
     // When a new message is received on the subscribed topic
     const mqttTopi='/device/'+devId+'/bleDeviceInfo';
     if (topic === mqttTopi) {
+
       const data = JSON.parse(message.toString());
+      if (!data.hasOwnProperty('unicastAddr') || data.unicastAddr === 0) {
         console.log(data);
-      // Broadcast the data to all connected WebSocket clients
-      wss.clients.forEach((client) => {
+        unprovDevData=data;
+
+    // Send the notification to all connected WebSocket clients
+    connectedClients.forEach((client) => {
         if (client.readyState === WebSocket.OPEN) {
-          client.send(JSON.stringify(data));
+          client.send(JSON.stringify( {alertType:"promptNumber",message: JSON.stringify(data) }));
         }
       });
-  
-      // You can also handle the data in other ways, e.g., send a notification to the frontend
-      // or update the state of your React components.
-    }
+    }}
   });
 
-  
-
+  app.get('/checkProvOnline',async(req,res)=>{
+    
+  })
 
 // Route to save post data
 app.post('/setUpVal', async (req, res) => {
@@ -103,7 +112,45 @@ app.post('/setUpVal', async (req, res) => {
   });
 
 
+  app.post("/setUnicast", async (req, res) => {
+
+    try {
+        // Extract data from the request body
+        const { unicastAddr } = req.body;
+        // Create a new object with the desired changes
+        console.log(req.body)
+const modifiedObject = {"type":40,
+    ...unprovDevData,
+    "unicastAddr": unicastAddr // Replace with your desired integer value
+  };
   
+  // Remove the 'infotype' property from the new object
+  delete modifiedObject.infoType;
+        console.log(modifiedObject)
+        const mqttTopic='/device/MASW0100001AA121/command'; 
+        mqttClient.publish(mqttTopic, JSON.stringify(modifiedObject), (err) => {
+            if (err) {
+              console.error('Error publishing to MQTT:', err);
+              return res.status(500).send('Error publishing to MQTT');
+            }
+        
+            console.log('Published to MQTT successfully');
+           
+          });  
+
+              // Send the notification to all connected WebSocket clients
+    connectedClients.forEach((client) => {
+        if (client.readyState === WebSocket.OPEN) {
+          client.send(JSON.stringify( {alertType:"success",message:"Unicast Address Assigned" }));
+        }
+      });
+      }  
+      catch (error) {
+        console.error(error);
+      }
+
+
+  })
 app.get("/", (req, res) => {
     res.send("I will be shown on the Browser");
     console.log("I will be shown on the Terminal");
@@ -116,7 +163,7 @@ process.on('SIGINT', () => {
   process.exit();
 });
 
-app.listen(port, () => {
+server.listen(port, () =>{
     console.log(`Listening for API Calls`);
   });
 
