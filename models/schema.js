@@ -6,19 +6,30 @@ const connection = mongoose.createConnection(
 );
 // const AutoIncrement = AutoIncrementFactory(connection);
 
-
+const roomScheme = new mongoose.Schema({
+  roomId:{type: Number},
+  roomName: {
+    type: String,
+    required: true,
+  },
+  roomImage:{
+    type: String,
+  }
+});
 const controlSchema = new mongoose.Schema({
   roomId:{type: Number},
   controlId:{
     type: Number,
   },
+});
+
+const LightScheme = new mongoose.Schema({
+  roomId:{type: Number},
   unicastAddr: {
     type: Number,
     required: true,
   },
 });
-
-
 
 const controlModel = mongoose.model("Controls", controlSchema);
 
