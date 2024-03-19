@@ -1,36 +1,42 @@
 import mongoose from "mongoose";
-// import AutoIncrementFactory from "mongoose-sequence";
+import dotenv from 'dotenv';
+dotenv.config();
 
 const connection = mongoose.createConnection(
-  "mongodb+srv://admin-kundan:Kundan%4019@cluster0.0qyqn.mongodb.net/smartLightDB?retryWrites=true&w=majority"
+  process.env.CONNECTION_STRING
 );
-// const AutoIncrement = AutoIncrementFactory(connection);
 
-const roomScheme = new mongoose.Schema({
-  roomId:{type: Number},
+const roomSchema = new mongoose.Schema({
+  roomId: {
+    type: Number,
+    required: true,
+    unique: true,
+  },
   roomName: {
     type: String,
     required: true,
   },
-  roomImage:{
-    type: String,
-  }
+  user: {
+    email: {
+      type: String,
+      required: true,
+    },
+  },
 });
+
 const controlSchema = new mongoose.Schema({
-  roomId:{type: Number},
-  controlId:{
-    type: Number,
-  },
+  roomId: { type: Number },
+  controlId: { type: Number },
 });
 
-const LightScheme = new mongoose.Schema({
-  roomId:{type: Number},
-  unicastAddr: {
-    type: Number,
-    required: true,
-  },
+const lightSchema = new mongoose.Schema({
+  roomId: { type: Number },
+  unicastAddr: { type: Number, required: true },
 });
 
+const roomModel = mongoose.model("Rooms", roomSchema);
+const lightModel = mongoose.model("Lights", lightSchema);
 const controlModel = mongoose.model("Controls", controlSchema);
 
-export default controlModel;
+export default { roomModel, lightModel, controlModel };
+

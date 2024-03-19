@@ -5,7 +5,9 @@ import http from "http";
 import WebSocket from "ws";
 import cors from "cors";
 import dbConnect from "./db/connectDb.js";
-import controlModel from "./models/schema.js";
+import controlSchema from "./models/schema.js";
+import dotenv from 'dotenv';
+dotenv.config();
 
 const port = 5002;
 const devId = "MASW0100001AA121";
@@ -33,14 +35,6 @@ wss.on("connection", (ws) => {
 
   // Add the WebSocket connection to the set
   connectedClients.add(ws);
-
-  // Handle WebSocket messages from the client if needed
-//   ws.send(
-//     JSON.stringify({
-//       alertType: "promptNumber",
-//       message: "Hello from the server!",
-//     })
-//   );
   // Close the WebSocket connection when the client disconnects
   ws.on("close", () => {
     console.log("Client disconnected");
@@ -214,12 +208,12 @@ app.post("/setUnicast", async (req, res) => {
     });
 
 
-    const collectionSize = await controlModel.countDocuments();
+    const collectionSize = await controlSchema.countDocuments();
     // Use the collection size as the index for the new document
     const newIndex = collectionSize;
 
     // Add the new document to the collection with the calculated index
-    const result = new controlModel({unicastAddr:unicastAddr,roomId:0, controlId: newIndex });
+    const result = new controlSchema({unicastAddr:unicastAddr,roomId:0, controlId: newIndex });
     result.save();
     console.log(`Document inserted with index: ${newIndex}`);
 
@@ -267,4 +261,40 @@ process.on("SIGINT", () => {
 
 server.listen(port, () => {
   console.log(`Listening for API Calls on ${port}`);
+});
+
+// Create a new room
+app.post('/addRoom', async (req, res) => {
+  try {
+    console.log(req.body)
+    const { roomName, userEmail } = req.body;
+    const roomCount = await roomModel.countDocuments({ 'user.email': userEmail });
+    console.log(roomCount);
+    const room = new roomModel({
+      roomId: roomCount + 1,
+      roomName,
+      user: {
+        email: userEmail,
+      },
+    });
+
+    await room.save();
+
+    res.status(201).json({ room, roomCount });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to create room' });
+  }
+});
+
+app.get('/getAllRooms/:userEmail', async (req, res) => {
+  console.log(req.params);
+  try {
+    const userEmail = req.params.userEmail;
+
+    // Query to get all rooms for the user's email
+    const rooms = await roomModel.find({ 'user.email': userEmail });
+    res.status(200).json(rooms);
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch rooms' });
+  }
 });

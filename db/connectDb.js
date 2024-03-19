@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
+import dotenv from 'dotenv';
+dotenv.config();
 const dbConnect = async () => {
   try {
-    const connect = await mongoose.connect("mongodb+srv://admin-kundan:Kundan%4019@cluster0.0qyqn.mongodb.net/smartLightDB?retryWrites=true&w=majority");
+    const connect = await mongoose.connect(process.env.CONNECTION_STRING);
     console.log(
       "Database Connected:",
       connect.connection.host,
